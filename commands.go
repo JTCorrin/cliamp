@@ -97,6 +97,7 @@ func buildApp() *cli.Command {
 			seekCommand(),
 			loadCommand(),
 			queueCommand(),
+			libraryCommand(),
 			themeCommand(),
 			visCommand(),
 			visStreamCommand(),

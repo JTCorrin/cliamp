@@ -344,6 +344,10 @@ func (m *Model) handleProviderPaneKey(msg tea.KeyPressMsg) tea.Cmd {
 		return m.toggleProviderFavorite()
 	case "o":
 		m.openFileBrowser()
+	case "A":
+		if manager, ok := m.provider.(provider.LibraryManager); ok {
+			m.openFileBrowserPickDir(func(path string) tea.Cmd { return addLibraryRootCmd(manager, path) })
+		}
 	case "N":
 		// Provider-pane browsing must stay scoped to the provider being
 		// viewed. Falling back to another registered browser can otherwise

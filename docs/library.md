@@ -6,7 +6,17 @@ by artist and album, and play them without a media server.
 
 ## Setup
 
-Mount the share, then add the folders to `config.toml`:
+The Library is always in the list of sources. It starts with no folder. Mount
+the share, then add a folder in any of these ways:
+
+- In the TUI, open the Library source and press `A`. A folder picker opens:
+  `Enter` or `→` opens the folder under the cursor, `Space` chooses it and
+  `Esc` cancels.
+- From a shell, run `cliamp library add /mnt/nas/music`. It works with or
+  without a running cliamp. See [cli.md](cli.md#library-folders).
+- Over the [remote-control API](remote-control.md) with `library.add_root`,
+  which is how the CLIAMPed shell plugin adds a folder.
+- By hand, in `config.toml`:
 
 ```toml
 [library]
@@ -15,9 +25,12 @@ paths = ["/mnt/nas/music"]
 # scan_on_start = true
 ```
 
+Adding a folder saves it to `paths` and scans it at once. Removing a folder
+(`cliamp library remove`) drops its files from the index.
+
 | Key | Default | Meaning |
 | --- | --- | --- |
-| `paths` | none | The music folders to index. The provider turns on when this is set. |
+| `paths` | none | The music folders to index. Adding a folder saves it here. |
 | `workers` | `4` | The number of files whose tags are read at the same time during a scan. Raise it for a share with high latency. |
 | `scan_on_start` | `true` | Rescan for new and changed files in the background at start. |
 

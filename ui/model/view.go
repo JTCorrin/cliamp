@@ -68,7 +68,7 @@ var providerEmptyStateHint = map[string]string{
 	"emby":                "Verify [emby] url and token or username/password in config.toml.",
 	"audiobookshelf":      "Verify [audiobookshelf] url and token or username/password in config.toml.",
 	"plex":                "Verify [plex] server URL and token or library filter in config.toml.",
-	"library":             "Verify [library] paths in config.toml, and that the share is mounted.",
+	"library":             "Press A to add a music folder, or set paths in the [library] section of config.toml.",
 	"youtube":             "Install yt-dlp for video audio, then press Ctrl+R to reload.",
 	"youtube (all)":       "Install yt-dlp for video audio, then press Ctrl+R to reload.",
 	"youtube music":       "Run `cliamp ytmusic-login` to authorize, then refresh.",

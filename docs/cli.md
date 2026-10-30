@@ -224,6 +224,17 @@ cliamp adds a track to the history when the track starts. In the TUI, the Local
 Playlists provider shows this data in the virtual "Recently Played" entry. See
 [history.md](history.md).
 
+## Library folders
+
+```sh
+cliamp library list                           # the music folders of the Library, with track counts
+cliamp library add /mnt/nas/music             # add a folder; cliamp scans it in the background
+cliamp library remove /mnt/nas/music          # remove a folder and the files indexed below it
+cliamp library scan                           # scan for new, changed and removed files
+```
+
+`add`, `remove` and `list` change the running cliamp at once. When cliamp is not running, they edit the `[library]` paths in `config.toml`, and cliamp scans the folders when it starts. `scan` needs a running cliamp. Add `--json` to `list`, `add` or `remove` for machine-readable output. See [library.md](library.md).
+
 ## Provider credentials
 
 ```sh

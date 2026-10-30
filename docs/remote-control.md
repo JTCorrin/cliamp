@@ -128,6 +128,7 @@ Run `cliamp remote capabilities` to get the current machine-readable list.
 | Play-next | `playnext.list`, `playnext.remove`, `playnext.move`, `playnext.clear` |
 | Sources | `load`, `url.load`, `save`, `lyrics`, `history`, `history.clear` |
 | Providers | `provider.list`, `provider.playlists`, `provider.tracks`, `provider.load`, `provider.search`, `provider.artists`, `provider.artist_albums`, `provider.albums`, `provider.album_tracks`, `provider.load_album`, `provider.favorite`, `provider.catalog` |
+| Library folders | `library.roots`, `library.add_root`, `library.remove_root`, `library.scan` |
 | Saved playlists | `playlist.create`, `playlist.rename`, `playlist.delete`, `playlist.add`, `playlist.add_many`, `playlist.replace`, `playlist.remove`, `playlist.bookmark` |
 | Plugins | `plugin.call`, `plugin.commands` |
 

@@ -366,6 +366,7 @@ var listKeys = []string{"up", "down", "k", "j", "pgup", "pgdown", "ctrl+u", "ctr
 var unlistedKeys = map[string][]string{
 	"handleDeviceKey":               {"d"},
 	"handleFileBrowserKey":          {"o", "right", "l", "backspace", "left", "h", "~", "."},
+	"handleFileBrowserPickKey":      {"o", "right", "l"},
 	"handleInfoKey":                 {"i"},
 	"handleKeymapKey":               {"?", "backspace", "h", "l"},
 	"handleLyricsKey":               {"y"},

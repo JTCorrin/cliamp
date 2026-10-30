@@ -220,6 +220,10 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmd := m.handleFBTracksResolved(msg)
 		return m, cmd
 
+	case libraryRootAddedMsg:
+		cmd := m.handleLibraryRootAdded(msg)
+		return m, cmd
+
 	case streamPlayedMsg:
 		cmd := m.handleStreamPlayed(msg)
 		return m, cmd

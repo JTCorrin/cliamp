@@ -212,7 +212,8 @@ func (m *Model) handleV2Request(msg V2RequestMsg) tea.Cmd {
 		request.Provider = "local"
 		request.Index = 0 // load has no index parameter
 		return m.handleV2LibraryRequest(ctx, msg.Jobs, msg.JobID, request)
-	case "url.load", "save", "lyrics", "history", "history.clear":
+	case "url.load", "save", "lyrics", "history", "history.clear",
+		"library.roots", "library.add_root", "library.remove_root", "library.scan":
 		return m.handleV2DeferredRequest(ctx, msg.Jobs, msg.JobID, request)
 	}
 	if isV2LibraryOperation(request.Cmd) {
@@ -557,6 +558,10 @@ func (m *Model) handleV2DeferredRequest(ctx context.Context, jobs *ipc.JobStore,
 		cmd = m.handleIPCSave(ipcSaveRequest{Context: ctx, Reply: reply})
 	case "lyrics":
 		cmd = m.handleIPCLyrics(ipcLyricsRequest{Context: ctx, Reply: reply})
+	case "library.roots", "library.add_root", "library.remove_root", "library.scan":
+		cmd = m.handleIPCLibraryRoots(ipcLibraryRootsRequest{
+			Op: request.Cmd, Provider: request.Provider, Path: request.Path, Context: ctx, Reply: reply,
+		})
 	default:
 		cmd = m.handleIPCHistory(ipcHistoryRequest{Op: request.Cmd, Limit: request.Limit, Reply: reply})
 	}

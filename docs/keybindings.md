@@ -330,6 +330,7 @@ Navidrome, Podcasts, or Local Playlists:
 | `Ctrl+F` | Run the provider online or server search (Spotify, Navidrome, NetEase, and others). |
 | `Ctrl+R` | Refresh the provider: reload the currently open playlist or starting wave in place (e.g. a fresh Yandex "Моя волна" batch), or return to the playlist list. For Mixcloud, also clear the cached `/me/` identity. |
 | `p` | Open the playlist as an overlay (the Local source shows it directly; create, rename, delete, add dirs/tracks) |
+| `A` | In the Library, add a music folder. A folder picker opens: `Enter` or `→` opens the folder under the cursor, `Space` chooses it, `Esc` cancels. cliamp saves the folder and scans it in the background. |
 | `S` `P` `J` `E` `B` `Y` `C` `X` `M` `Q` `T` `K` `L` `R` `O` | Switch to that provider |
 | `N` | Open the browser of the provider on screen |
 | `Tab` | Leave the provider pane and focus Source, or the first visible playback control |

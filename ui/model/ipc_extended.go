@@ -710,6 +710,70 @@ func (m *Model) handleIPCHistoryCleared(msg ipcHistoryClearedMsg) tea.Cmd {
 	return cmd
 }
 
+// ipcLibraryRootsRequest is one library.* operation: list, add or remove a
+// music folder, or rescan.
+type ipcLibraryRootsRequest struct {
+	Op       string
+	Provider string // the provider key; empty means the library
+	Path     string
+	Context  context.Context
+	Reply    chan ipc.Response
+}
+
+// handleIPCLibraryRoots runs a library.* operation on the provider that
+// implements provider.LibraryManager. Every reply lists the folders as they
+// are after the change, so a client needs no second call.
+func (m *Model) handleIPCLibraryRoots(request ipcLibraryRootsRequest) tea.Cmd {
+	key := request.Provider
+	if key == "" {
+		key = "library"
+	}
+	entry, ok := m.ipcProvider(key)
+	if !ok {
+		request.Reply <- ipc.Response{OK: false, Error: fmt.Sprintf("unknown provider %q", key)}
+		return nil
+	}
+	manager, ok := entry.Provider.(provider.LibraryManager)
+	if !ok {
+		request.Reply <- ipc.Response{OK: false, Error: "provider does not manage music folders"}
+		return nil
+	}
+	// A folder check can wait on a slow share, so it runs off the update loop.
+	return func() tea.Msg {
+		if request.Context != nil && request.Context.Err() != nil {
+			return nil
+		}
+		response := ipc.Response{OK: true}
+		switch request.Op {
+		case "library.add_root":
+			stored, err := manager.AddLibraryRoot(request.Path)
+			if err != nil {
+				request.Reply <- ipc.Response{OK: false, Error: err.Error()}
+				return nil
+			}
+			response.Output = stored
+		case "library.remove_root":
+			if err := manager.RemoveLibraryRoot(request.Path); err != nil {
+				request.Reply <- ipc.Response{OK: false, Error: err.Error()}
+				return nil
+			}
+		case "library.scan":
+			manager.RescanLibrary()
+		}
+		response.Roots = ipcLibraryRoots(manager.LibraryRoots())
+		request.Reply <- response
+		return nil
+	}
+}
+
+func ipcLibraryRoots(roots []provider.LibraryRoot) []ipc.LibraryRootInfo {
+	items := make([]ipc.LibraryRootInfo, len(roots))
+	for i, root := range roots {
+		items[i] = ipc.LibraryRootInfo{Path: root.Path, Tracks: root.Tracks, Available: root.Available}
+	}
+	return items
+}
+
 func (m *Model) ipcProvider(key string) (provider.Entry, bool) {
 	for _, entry := range m.providers {
 		if strings.EqualFold(entry.Key, key) {

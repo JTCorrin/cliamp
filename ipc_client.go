@@ -31,10 +31,21 @@ const (
 // package returns a bare sentinel, so all CLI copy stays in the command layer.
 func userIPCError(err error) error {
 	if errors.Is(err, ipc.ErrNotRunning) {
-		return fmt.Errorf("cliamp is not running (no socket at %s)", ipc.DefaultSocketPath())
+		return notRunningError{socket: ipc.DefaultSocketPath()}
 	}
 	return err
 }
+
+// notRunningError is the "cliamp is not running" error that users see. It
+// unwraps to ipc.ErrNotRunning, so a command can fall back to work that needs
+// no running cliamp.
+type notRunningError struct{ socket string }
+
+func (e notRunningError) Error() string {
+	return fmt.Sprintf("cliamp is not running (no socket at %s)", e.socket)
+}
+
+func (e notRunningError) Unwrap() error { return ipc.ErrNotRunning }
 
 // sendV2 sends one request with the CLI request ID to the running cliamp.
 func sendV2(request ipc.V2Request) (ipc.V2Response, error) {

@@ -84,8 +84,53 @@ func (m *Model) openFileBrowser() {
 	m.fileBrowser.err = ""
 	m.fileBrowser.targetPlaylist = ""
 	m.fileBrowser.confirmReplace = false
+	m.fileBrowser.onPick = nil
 	m.loadFBDir()
 	m.fileBrowser.visible = true
+}
+
+// openFileBrowserPickDir opens the file browser to choose one folder. Enter
+// opens the folder under the cursor and Space chooses it, then onPick runs
+// with its path.
+func (m *Model) openFileBrowserPickDir(onPick func(path string) tea.Cmd) {
+	m.openFileBrowser()
+	m.fileBrowser.onPick = onPick
+}
+
+// handleFileBrowserPickKey handles the keys of the browser while it chooses a
+// folder. handled is false for the keys that move through the folders, which
+// the browser handles as usual. The keys that act on audio files do nothing.
+func (m *Model) handleFileBrowserPickKey(msg tea.KeyPressMsg) (cmd tea.Cmd, handled bool) {
+	switch msg.String() {
+	case "esc", "o", "q":
+		m.fileBrowser.visible = false
+		m.fileBrowser.clearFilter()
+		m.fileBrowser.onPick = nil
+		return nil, true
+	case "enter", "right", "l":
+		// Open a folder; a file has nothing to open here.
+		if m.fileBrowser.cursor < m.fbCount() && m.fbEntry(m.fileBrowser.cursor).isDir {
+			return m.fbDescend(), true
+		}
+		return nil, true
+	case "space":
+		// Choose the folder under the cursor, or the open folder when the
+		// cursor is on "..", on a file, or on nothing.
+		path := m.fileBrowser.dir
+		if m.fileBrowser.cursor < m.fbCount() {
+			if e := m.fbEntry(m.fileBrowser.cursor); e.isDir && !e.isParent {
+				path = e.path
+			}
+		}
+		onPick := m.fileBrowser.onPick
+		m.fileBrowser.visible = false
+		m.fileBrowser.clearFilter()
+		m.fileBrowser.onPick = nil
+		return onPick(path), true
+	case "a", "R", "w", "D":
+		return nil, true
+	}
+	return nil, false
 }
 
 func (m *Model) openFileBrowserForPlaylist(name string) {
@@ -222,6 +267,12 @@ func (m *Model) handleFileBrowserKey(msg tea.KeyPressMsg) tea.Cmd {
 			m.status.Show("Enter confirms replace, Esc cancels.", statusTTLShort)
 		}
 		return nil
+	}
+
+	if m.fileBrowser.onPick != nil {
+		if cmd, handled := m.handleFileBrowserPickKey(msg); handled {
+			return cmd
+		}
 	}
 
 	key := msg.String()

@@ -177,6 +177,10 @@ var commandRegistry = []commandSpec{
 	{Mode: commandModeProvider, Keys: []string{"p"}, KeyLabel: "p", Label: "Playlist", Keymap: true, ContextHelp: true, Enabled: func(m Model) bool {
 		return m.localProvider != nil
 	}},
+	{Mode: commandModeProvider, Keys: []string{"A"}, KeyLabel: "A", Label: "Add music folder", Keymap: true, ContextHelp: true, Enabled: func(m Model) bool {
+		_, ok := m.provider.(provider.LibraryManager)
+		return ok
+	}},
 	{Mode: commandModeMain, Keys: []string{"ctrl+h"}, KeyLabel: "Ctrl+H", Label: "Toggle album headers", Keymap: true},
 	{Mode: commandModeMain, Keys: []string{"ctrl+g"}, KeyLabel: "Ctrl+G", Label: "Toggle key-binding hint bar", Keymap: true},
 	{Mode: commandModeMain, Keys: []string{"ctrl+b"}, KeyLabel: "Ctrl+B", Label: "Open/close the settings pane", Enabled: func(m Model) bool {
@@ -318,7 +322,7 @@ var commandRegistry = []commandSpec{
 	{Mode: commandModeThemePickerFilter | commandModeVisPickerFilter, Keys: []string{"enter"}, KeyLabel: "Enter", Label: "Finish filter", ContextHelp: true, Primary: true},
 	{Mode: commandModeQueue, Keys: []string{"d"}, KeyLabel: "d", Label: "Remove", Destructive: true, ContextHelp: true, Primary: true, Enabled: func(m Model) bool { return m.playlist != nil && m.playlist.QueueLen() > 0 }},
 	{Mode: commandModeQueue, Keys: []string{"c"}, KeyLabel: "c", Label: "Clear", Destructive: true, ContextHelp: true},
-	{Mode: commandModeFileBrowser, Keys: []string{"R"}, KeyLabel: "R", Label: "Replace queue", Destructive: true, ContextHelp: true},
+	{Mode: commandModeFileBrowser, Keys: []string{"R"}, KeyLabel: "R", Label: "Replace queue", Destructive: true, ContextHelp: true, Enabled: func(m Model) bool { return m.fileBrowser.onPick == nil }},
 	{Mode: commandModeNavBrowser, Keys: []string{"R"}, KeyLabel: "R", Label: "Replace queue", Destructive: true, ContextHelp: true, Enabled: func(m Model) bool { return m.navView() == navViewTracks }},
 	{Mode: commandModeLyrics, Keys: []string{"r"}, KeyLabel: "r", Label: "Retry", ContextHelp: true, Primary: true, Enabled: func(m Model) bool { return !m.lyrics.loading && (m.lyrics.err != nil || len(m.lyrics.lines) == 0) }},
 	{Mode: commandModeLyrics, Keys: []string{"[", "]"}, KeyLabel: "[ ]", Label: "Sync offset (−/+250 ms)", ContextHelp: true, Keymap: true, Enabled: func(m Model) bool { return m.lyricsSyncable() && m.lyricsHaveTimestamps() }},
@@ -353,14 +357,19 @@ var commandRegistry = []commandSpec{
 	{Mode: commandModePlaylistManagerDirs, Keys: []string{"r"}, KeyLabel: "r", Label: "Toggle recursive", ContextHelp: true},
 	{Mode: commandModePlaylistManagerDirs, Keys: []string{"up", "down", "k", "j"}, KeyLabel: "Up Down", Label: "Navigate", ContextHelp: true},
 	{Mode: commandModeFileBrowser, Keys: []string{"D"}, KeyLabel: "D", Label: "Add as dir source", ContextHelp: true, Enabled: func(m Model) bool {
-		return m.fileBrowser.visible && m.fileBrowser.targetPlaylist != ""
+		return m.fileBrowser.visible && m.fileBrowser.targetPlaylist != "" && m.fileBrowser.onPick == nil
 	}},
 	{Mode: commandModeQueue, Keys: []string{"shift+up", "shift+down"}, KeyLabel: "Shift+Up Down", Label: "Reorder", Keymap: true, ContextHelp: true},
 	{Mode: commandModeQueue, Keys: []string{"?"}, KeyLabel: "?", Label: "Help", Keymap: true},
 	{Mode: commandModeFileBrowser, Keys: []string{"/"}, KeyLabel: "/", Label: "Filter", Keymap: true, ContextHelp: true},
-	{Mode: commandModeFileBrowser, Keys: []string{"space"}, KeyLabel: "Space", Label: "Select", Keymap: true, ContextHelp: true},
-	{Mode: commandModeFileBrowser, Keys: []string{"a"}, KeyLabel: "a", Label: "Select/unselect all audio", Keymap: true},
-	{Mode: commandModeFileBrowser, Keys: []string{"w"}, KeyLabel: "w", Label: "Save to playlist", Keymap: true, ContextHelp: true},
+	{Mode: commandModeFileBrowser, Keys: []string{"space"}, KeyLabel: "Space", Label: "Select", LabelFor: func(m Model) string {
+		if m.fileBrowser.onPick != nil {
+			return "Choose folder"
+		}
+		return "Select"
+	}, Keymap: true, ContextHelp: true},
+	{Mode: commandModeFileBrowser, Keys: []string{"a"}, KeyLabel: "a", Label: "Select/unselect all audio", Keymap: true, Enabled: func(m Model) bool { return m.fileBrowser.onPick == nil }},
+	{Mode: commandModeFileBrowser, Keys: []string{"w"}, KeyLabel: "w", Label: "Save to playlist", Keymap: true, ContextHelp: true, Enabled: func(m Model) bool { return m.fileBrowser.onPick == nil }},
 	{Mode: commandModePlaylistManager, Keys: []string{"space"}, KeyLabel: "Space", Label: "Mark", ContextHelp: true, Enabled: func(m Model) bool {
 		return m.plManager.visible && m.plManager.screen == plMgrScreenTracks
 	}},

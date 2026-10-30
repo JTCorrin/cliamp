@@ -206,6 +206,9 @@ func (m Model) fbHeaderLine() string {
 		return m.filterHeader("Filter: Files", "file-browser-search", m.fileBrowser.filter, "")
 	}
 	label := "Files: " + m.fileBrowser.dir
+	if m.fileBrowser.onPick != nil {
+		label = "Choose a music folder: " + m.fileBrowser.dir
+	}
 	if n := len(m.fileBrowser.selected); n > 0 {
 		label += fmt.Sprintf("  [%d selected]", n)
 	}

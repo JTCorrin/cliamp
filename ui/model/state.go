@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	tea "charm.land/bubbletea/v2"
+
 	"github.com/bjarneo/cliamp/applog"
 	"github.com/bjarneo/cliamp/lyrics"
 	"github.com/bjarneo/cliamp/player"
@@ -261,6 +263,9 @@ type fileBrowserState struct {
 	err            string
 	targetPlaylist string
 	confirmReplace bool
+	// onPick, when set, makes the browser choose one folder instead of audio:
+	// choosing runs it with the folder, and closes the browser.
+	onPick func(path string) tea.Cmd
 }
 
 // navBrowserState holds state for the provider browser overlay.
