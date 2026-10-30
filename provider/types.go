@@ -80,6 +80,7 @@ const (
 	MetaTidalID     = "tidal.id"
 	MetaBandcampID  = "bandcamp.id"
 	MetaLyrionID    = "lyrion.id"
+	MetaLibraryID   = "library.id"
 	MetaMixcloudKey = "mixcloud.key"
 	// MetaMixcloudCreator is the profile username that owns a Mixcloud show.
 	MetaMixcloudCreator = "mixcloud.creator"
