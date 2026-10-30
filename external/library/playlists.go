@@ -64,6 +64,12 @@ func (p *Provider) Playlists() ([]playlist.PlaylistInfo, error) {
 
 // Tracks returns the tracks of a playlist of the store.
 func (p *Provider) Tracks(playlistID string) ([]playlist.Track, error) {
+	switch playlistID {
+	case entryArtists, entryAlbums, entryStatus:
+		// A line of the provider pane, not a playlist: the store has no file
+		// of that name.
+		return nil, nil
+	}
 	s := p.playlists()
 	if s == nil {
 		return nil, errNoStore

@@ -234,8 +234,8 @@ func TestBrowseSeesNewIndex(t *testing.T) {
 func TestBrowseEntries(t *testing.T) {
 	p := browseFixture(t)
 	entries := p.BrowseEntries()
-	if len(entries) != 2 || entries[0].Mode != provider.BrowseArtistAlbums || entries[1].Mode != provider.BrowseAlbums {
-		t.Errorf("entries = %+v", entries)
+	if len(entries) != 3 || entries[0].Mode != provider.BrowseArtistAlbums || entries[1].Mode != provider.BrowseAlbums {
+		t.Fatalf("entries = %+v", entries)
 	}
 	for _, e := range entries {
 		if e.ID == "" || e.Name == "" {
@@ -248,9 +248,9 @@ func TestBrowseEntriesShowScanState(t *testing.T) {
 	tests := []struct {
 		name   string
 		status Status
-		want   string // the name of the third entry, or empty for none
+		want   string // the name of the status entry
 	}{
-		{"idle", Status{}, ""},
+		{"idle", Status{}, "9 tracks indexed"},
 		{"scanning, count unknown", Status{Scanning: true}, "Scanning for new files"},
 		{"scanning", Status{Scanning: true, Progress: Progress{Done: 12, Total: 50}}, "Scanning: 12 of 50 new files"},
 		{"failed", Status{Err: "boom"}, "Scan failed: boom"},
@@ -263,16 +263,55 @@ func TestBrowseEntriesShowScanState(t *testing.T) {
 			p.status = tt.status
 			p.mu.Unlock()
 			entries := p.BrowseEntries()
-			if tt.want == "" {
-				if len(entries) != 2 {
-					t.Fatalf("entries = %+v, want only Artists and Albums", entries)
-				}
-				return
-			}
-			if len(entries) != 3 || entries[2].Name != tt.want || entries[2].ID != entryStatus {
+			if len(entries) != 3 || entries[2].ID != entryStatus || entries[2].Name != tt.want {
 				t.Errorf("entries = %+v, want a status entry %q", entries, tt.want)
 			}
 		})
+	}
+}
+
+func TestBrowseEntriesStatusTexts(t *testing.T) {
+	tests := []struct {
+		files []File
+		want  string
+	}{
+		{nil, "No tracks indexed. Press Ctrl+R to scan"},
+		{[]File{{Rel: "a.mp3", Title: "A"}}, "1 track indexed"},
+	}
+	for _, tt := range tests {
+		p := testProvider(t, tt.files)
+		if got := p.BrowseEntries()[2].Name; got != tt.want {
+			t.Errorf("status line = %q, want %q", got, tt.want)
+		}
+	}
+}
+
+// The pane resolves a selected line by asking for the entries again. If the
+// IDs changed with the scan, a line that was on screen when a scan ended would
+// be opened as a playlist and fail with a file that does not exist.
+func TestBrowseEntryIDsNeverChange(t *testing.T) {
+	ids := func(p *Provider) []string {
+		var out []string
+		for _, e := range p.BrowseEntries() {
+			out = append(out, e.ID)
+		}
+		return out
+	}
+	p := browseFixture(t)
+	want := ids(p)
+	for _, st := range []Status{
+		{Scanning: true},
+		{Scanning: true, Progress: Progress{Done: 1, Total: 2}},
+		{Err: "x"},
+		{Last: ScanResult{Unavailable: []string{"/a"}}},
+		{},
+	} {
+		p.mu.Lock()
+		p.status = st
+		p.mu.Unlock()
+		if got := ids(p); !slices.Equal(got, want) {
+			t.Errorf("IDs with status %+v = %v, want %v", st, got, want)
+		}
 	}
 }
 

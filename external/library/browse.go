@@ -394,26 +394,42 @@ func (p *Provider) ArtistForTrack(track playlist.Track) (provider.ArtistInfo, bo
 }
 
 // BrowseEntries returns the routes that the provider pane lists next to the
-// playlists. While a scan runs, and when a root could not be read, it adds a
-// line that says so: a first scan of a large share takes minutes, and an
-// unmounted share otherwise looks like a library that is merely out of date.
+// playlists, and a last line that says what the index holds or what the scan
+// is doing: a first scan of a large share takes minutes, and an unmounted
+// share otherwise looks like a library that is merely out of date.
+//
+// The set of IDs never changes. The pane resolves a selected line by asking
+// for the entries again, so a line that came and went with the scan would be
+// opened as a playlist when the scan ended before the keypress.
 func (p *Provider) BrowseEntries() []provider.BrowseEntry {
-	entries := []provider.BrowseEntry{
+	return []provider.BrowseEntry{
 		{ID: entryArtists, Name: "Artists", Mode: provider.BrowseArtistAlbums},
 		{ID: entryAlbums, Name: "Albums", Mode: provider.BrowseAlbums},
+		{ID: entryStatus, Name: p.statusLine(), Mode: provider.BrowseAlbums},
 	}
+}
+
+// statusLine describes the state of the library in one line.
+func (p *Provider) statusLine() string {
 	st := p.Status()
 	switch {
 	case st.Scanning && st.Progress.Total > 0:
-		entries = append(entries, provider.BrowseEntry{ID: entryStatus, Name: fmt.Sprintf("Scanning: %d of %d new files", st.Progress.Done, st.Progress.Total), Mode: provider.BrowseAlbums})
+		return fmt.Sprintf("Scanning: %d of %d new files", st.Progress.Done, st.Progress.Total)
 	case st.Scanning:
-		entries = append(entries, provider.BrowseEntry{ID: entryStatus, Name: "Scanning for new files", Mode: provider.BrowseAlbums})
+		return "Scanning for new files"
 	case st.Err != "":
-		entries = append(entries, provider.BrowseEntry{ID: entryStatus, Name: "Scan failed: " + st.Err, Mode: provider.BrowseAlbums})
+		return "Scan failed: " + st.Err
 	case len(st.Last.Unavailable) > 0:
-		entries = append(entries, provider.BrowseEntry{ID: entryStatus, Name: "Not readable, showing the saved index: " + strings.Join(st.Last.Unavailable, ", "), Mode: provider.BrowseAlbums})
+		return "Not readable, showing the saved index: " + strings.Join(st.Last.Unavailable, ", ")
 	}
-	return entries
+	switch n := p.index().Len(); n {
+	case 0:
+		return "No tracks indexed. Press Ctrl+R to scan"
+	case 1:
+		return "1 track indexed"
+	default:
+		return fmt.Sprintf("%d tracks indexed", n)
+	}
 }
 
 // find returns the position of the file at an absolute path.

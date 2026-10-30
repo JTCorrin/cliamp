@@ -158,3 +158,12 @@ func TestPlaylistsWithoutStore(t *testing.T) {
 		t.Errorf("checked %d methods, want all 11 store methods", len(errs))
 	}
 }
+
+func TestTracksOfPaneLinesAreEmpty(t *testing.T) {
+	p := storeProvider(t)
+	for _, id := range []string{entryArtists, entryAlbums, entryStatus} {
+		if tracks, err := p.Tracks(id); err != nil || len(tracks) != 0 {
+			t.Errorf("Tracks(%q) = %v, %v; want none and no error", id, tracks, err)
+		}
+	}
+}
