@@ -9,6 +9,7 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/bjarneo/cliamp/playlist"
 	"github.com/bjarneo/cliamp/provider"
@@ -69,6 +70,9 @@ type browseIndex struct {
 	albums     []albumRec
 	albumByID  map[string]int
 	albumOf    [][]int32 // for each file of each root, the index of its album
+
+	orderMu sync.Mutex
+	orders  map[string][]int // album indexes in each sort order, built on first use
 }
 
 // groupID returns a stable ID for a folded key.
@@ -191,15 +195,22 @@ func commonSpelling(spellings map[string]int) string {
 }
 
 // browseIndexFor returns the browse form of the current index. It builds the
-// form once for each index.
+// form once for each index, outside the lock.
 func (p *Provider) browseIndexFor() *browseIndex {
 	ix := p.index()
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	if p.browse == nil || p.browse.ix != ix {
-		p.browse = buildBrowseIndex(ix)
+	p.mu.RLock()
+	bi := p.browse
+	p.mu.RUnlock()
+	if bi != nil && bi.ix == ix {
+		return bi
 	}
-	return p.browse
+	bi = buildBrowseIndex(ix)
+	p.mu.Lock()
+	if p.idx == ix {
+		p.browse = bi
+	}
+	p.mu.Unlock()
+	return bi
 }
 
 func (bi *browseIndex) albumInfo(al *albumRec) provider.AlbumInfo {
@@ -267,10 +278,20 @@ func (p *Provider) AlbumSortTypes() []provider.SortType {
 // DefaultAlbumSort returns the sort order that the album list opens with.
 func (p *Provider) DefaultAlbumSort() string { return sortByName }
 
-// AlbumList returns one page of the albums in the sort order. An unknown
-// sort order sorts by name.
-func (p *Provider) AlbumList(sortType string, offset, size int) ([]provider.AlbumInfo, error) {
-	bi := p.browseIndexFor()
+// albumOrder returns the indexes of the albums in the sort order. An unknown
+// sort order sorts by name. The result is built once for each order and must
+// not be changed.
+func (bi *browseIndex) albumOrder(sortType string) []int {
+	switch sortType {
+	case sortByArtist, sortNewest, sortByYear:
+	default:
+		sortType = sortByName
+	}
+	bi.orderMu.Lock()
+	defer bi.orderMu.Unlock()
+	if idx, ok := bi.orders[sortType]; ok {
+		return idx
+	}
 	idx := make([]int, len(bi.albums))
 	for i := range idx {
 		idx[i] = i
@@ -305,6 +326,18 @@ func (p *Provider) AlbumList(sortType string, offset, size int) ([]provider.Albu
 		}
 		return cmpName(x, y)
 	})
+	if bi.orders == nil {
+		bi.orders = map[string][]int{}
+	}
+	bi.orders[sortType] = idx
+	return idx
+}
+
+// AlbumList returns one page of the albums in the sort order. An unknown
+// sort order sorts by name.
+func (p *Provider) AlbumList(sortType string, offset, size int) ([]provider.AlbumInfo, error) {
+	bi := p.browseIndexFor()
+	idx := bi.albumOrder(sortType)
 	if offset < 0 {
 		offset = 0
 	}

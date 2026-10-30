@@ -3,6 +3,7 @@ package library
 import (
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/bjarneo/cliamp/config"
 )
@@ -101,5 +102,22 @@ func TestProviderClosedDoesNotScan(t *testing.T) {
 	}
 	if p.index() != before {
 		t.Error("the index was replaced")
+	}
+}
+
+func TestCloseReturnsPromptly(t *testing.T) {
+	root := t.TempDir()
+	for i := 0; i < 30; i++ {
+		writeMP3(t, filepath.Join(root, string(rune('a'+i%26))+itoa(i%90+10)+".mp3"), tagsFor("T", "X", "Y", 1))
+	}
+	p := newProvider(config.LibraryConfig{Paths: []string{root}}, "")
+	p.startScan()
+	start := time.Now()
+	p.Close()
+	if d := time.Since(start); d > closeTimeout {
+		t.Errorf("Close took %v", d)
+	}
+	if p.Status().Scanning {
+		t.Error("a scan still runs after Close")
 	}
 }

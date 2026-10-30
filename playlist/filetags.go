@@ -33,9 +33,6 @@ func ReadFileTags(path string) (FileTags, error) {
 		}
 		return FileTags{Track: TrackFromFilename(path)}, nil
 	}
-	if strings.TrimSpace(m.Title()) == "" {
-		return FileTags{Track: TrackFromFilename(path)}, nil
-	}
 	t := Track{
 		Path:   path,
 		Title:  sanitizeTag(strings.TrimSpace(m.Title())),
@@ -43,6 +40,15 @@ func ReadFileTags(path string) (FileTags, error) {
 		Album:  sanitizeTag(strings.TrimSpace(m.Album())),
 		Genre:  sanitizeTag(strings.TrimSpace(m.Genre())),
 		Year:   m.Year(),
+	}
+	if t.Title == "" {
+		// Keep the tags that exist: only the title, and an artist that the
+		// tags lack, come from the file name.
+		fallback := TrackFromFilename(path)
+		t.Title = fallback.Title
+		if t.Artist == "" {
+			t.Artist = fallback.Artist
+		}
 	}
 	t.TrackNumber, _ = m.Track()
 	disc, _ := m.Disc()

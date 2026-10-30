@@ -42,12 +42,15 @@ type candidate struct {
 }
 
 // ExpandRoot returns the folder of a configured root: a leading ~ becomes the
-// home folder, and the path is cleaned.
+// home folder, a relative path becomes absolute, and the path is cleaned.
 func ExpandRoot(path string) string {
 	if path == "~" || strings.HasPrefix(path, "~/") {
 		if home, err := os.UserHomeDir(); err == nil {
 			path = filepath.Join(home, path[1:])
 		}
+	}
+	if abs, err := filepath.Abs(path); err == nil {
+		path = abs
 	}
 	return filepath.Clean(path)
 }
@@ -77,7 +80,7 @@ func Scan(ctx context.Context, roots []string, old *Index, workers int, progress
 		if ctxErr := ctx.Err(); ctxErr != nil {
 			return nil, res, ctxErr
 		}
-		res.Skipped += skipped
+		res.Skipped += len(skipped)
 		if err != nil || (len(cands) == 0 && prev != nil && len(prev.Files) > 0) {
 			res.Unavailable = append(res.Unavailable, rootPath)
 			if prev != nil {
@@ -87,7 +90,7 @@ func Scan(ctx context.Context, roots []string, old *Index, workers int, progress
 			}
 			continue
 		}
-		files, counts, err := readRoot(ctx, rootPath, cands, prev, workers, progress)
+		files, counts, err := readRoot(ctx, rootPath, cands, skipped, prev, workers, progress)
 		if err != nil {
 			return nil, res, err
 		}
@@ -107,34 +110,43 @@ func Scan(ctx context.Context, roots []string, old *Index, workers int, progress
 	return next, res, nil
 }
 
-// walkRoot lists the audio files below root. A file or folder that cannot be
-// read is skipped and counted. The error is not nil only when root itself
-// cannot be read.
-func walkRoot(ctx context.Context, root string) ([]candidate, int, error) {
-	info, err := os.Stat(root)
+// walkRoot lists the audio files below root. A root that is a symlink is
+// followed, because WalkDir does not follow one. A file or folder that cannot
+// be read is not listed: skipped holds its path below root, so the caller can
+// keep what the index knew about it. The error is not nil only when root
+// itself cannot be read.
+func walkRoot(ctx context.Context, root string) (cands []candidate, skipped []string, err error) {
+	real, err := filepath.EvalSymlinks(root)
 	if err != nil {
-		return nil, 0, err
+		return nil, nil, err
+	}
+	info, err := os.Stat(real)
+	if err != nil {
+		return nil, nil, err
 	}
 	if !info.IsDir() {
-		return nil, 0, fmt.Errorf("%s is not a folder", root)
+		return nil, nil, fmt.Errorf("%s is not a folder", root)
 	}
-	var cands []candidate
-	skipped := 0
-	err = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+	skip := func(path string) {
+		if rel, err := filepath.Rel(real, path); err == nil {
+			skipped = append(skipped, filepath.ToSlash(rel))
+		}
+	}
+	err = filepath.WalkDir(real, func(path string, d fs.DirEntry, err error) error {
 		if cerr := ctx.Err(); cerr != nil {
 			return cerr
 		}
 		if err != nil {
-			if path == root {
+			if path == real {
 				return err
 			}
-			skipped++
+			skip(path)
 			if d != nil && d.IsDir() {
 				return fs.SkipDir
 			}
 			return nil
 		}
-		if path == root {
+		if path == real {
 			return nil
 		}
 		name := d.Name()
@@ -148,15 +160,16 @@ func walkRoot(ctx context.Context, root string) ([]candidate, int, error) {
 			return nil
 		}
 		fi, err := os.Stat(path) // follows a symlink to a file
-		if err != nil || !fi.Mode().IsRegular() {
-			if err != nil {
-				skipped++
-			}
+		if err != nil {
+			skip(path)
 			return nil
 		}
-		rel, err := filepath.Rel(root, path)
+		if !fi.Mode().IsRegular() {
+			return nil
+		}
+		rel, err := filepath.Rel(real, path)
 		if err != nil {
-			skipped++
+			skip(path)
 			return nil
 		}
 		cands = append(cands, candidate{rel: filepath.ToSlash(rel), modUnix: fi.ModTime().Unix(), size: fi.Size()})
@@ -171,6 +184,16 @@ func walkRoot(ctx context.Context, root string) ([]candidate, int, error) {
 	return cands, skipped, nil
 }
 
+// underSkipped reports whether rel is one of the skipped paths or below one.
+func underSkipped(rel string, skipped []string) bool {
+	for _, s := range skipped {
+		if rel == s || strings.HasPrefix(rel, s+"/") {
+			return true
+		}
+	}
+	return false
+}
+
 // skipName reports whether a file or folder name is metadata of the file
 // system or of the NAS, not music: dot files, such as the ._ files that macOS
 // leaves on a share, and the @eaDir folders of Synology.
@@ -179,8 +202,10 @@ func skipName(name string) bool {
 }
 
 // readRoot returns the files of one root: the unchanged files of prev, and
-// the tags that workers read from the new and changed files.
-func readRoot(ctx context.Context, root string, cands []candidate, prev *Root, workers int, progress func(Progress)) ([]File, ScanResult, error) {
+// the tags that workers read from the new and changed files. A file of prev
+// below a path in skipped is kept as it was: the walk could not read it, which
+// does not show that the file is gone.
+func readRoot(ctx context.Context, root string, cands []candidate, skipped []string, prev *Root, workers int, progress func(Progress)) ([]File, ScanResult, error) {
 	var counts ScanResult
 	known := map[string]File{}
 	if prev != nil {
@@ -200,8 +225,13 @@ func readRoot(ctx context.Context, root string, cands []candidate, prev *Root, w
 		}
 		todo = append(todo, c)
 	}
-	for rel := range known {
-		if !seen[rel] {
+	for rel, f := range known {
+		switch {
+		case seen[rel]:
+		case underSkipped(rel, skipped):
+			files = append(files, f)
+			counts.Unchanged++
+		default:
 			counts.Removed++
 		}
 	}

@@ -85,13 +85,18 @@ first scan of a large share can take minutes, because cliamp reads the tags of
 every file. Raise `workers` for a share with high latency.
 
 The scan skips dot files, such as the `._` files that macOS leaves on a share,
-and the `@eaDir` and `#recycle` folders of Synology. It does not follow
-symlinked folders.
+and the `@eaDir` and `#recycle` folders of Synology. A path in `paths` may
+be a symlink, such as `~/Music` that points at the share, but the scan does not
+follow symlinked folders inside it. A relative path is taken from the folder
+where you start cliamp, so use absolute paths. Do not list a folder and one of
+its subfolders: each file would appear twice.
 
 If the share is not mounted, or a folder holds no audio file while the index
 holds some, cliamp keeps the saved index for that folder and the provider pane
 shows **Not readable, showing the saved index**. A folder that is empty is never
-taken as proof that you deleted the music. Remove the folder from `paths` to
+taken as proof that you deleted the music. In the same way, a subfolder that
+cannot be read during a scan, for example after a network error, keeps its
+saved files. Remove the folder from `paths` to
 drop its files from the index.
 
 Tags come from the file: ID3, MP4, Vorbis and FLAC tags, the WAV INFO list, and

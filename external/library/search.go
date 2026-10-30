@@ -64,15 +64,23 @@ func buildSearchIndex(ix *Index) *searchIndex {
 }
 
 // searchIndexFor returns the searchable form of the current index. It builds
-// the form once for each index.
+// the form once for each index, outside the lock, so a build does not stall
+// the calls that only read the status.
 func (p *Provider) searchIndexFor() *searchIndex {
 	ix := p.index()
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	if p.search == nil || p.search.ix != ix {
-		p.search = buildSearchIndex(ix)
+	p.mu.RLock()
+	si := p.search
+	p.mu.RUnlock()
+	if si != nil && si.ix == ix {
+		return si
 	}
-	return p.search
+	si = buildSearchIndex(ix)
+	p.mu.Lock()
+	if p.idx == ix {
+		p.search = si
+	}
+	p.mu.Unlock()
+	return si
 }
 
 // fold lowercases s and replaces the common accented Latin letters with their

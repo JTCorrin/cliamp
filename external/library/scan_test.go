@@ -248,12 +248,15 @@ func TestExpandRoot(t *testing.T) {
 		{"~", "/home/u"},
 		{"~/Music", "/home/u/Music"},
 		{"/mnt/nas//music/", "/mnt/nas/music"},
-		{"~other/x", "~other/x"},
 	}
 	for _, tt := range tests {
 		if got := ExpandRoot(tt.in); got != tt.want {
 			t.Errorf("ExpandRoot(%q) = %q, want %q", tt.in, got, tt.want)
 		}
+	}
+	// A relative path does not depend on the working directory afterwards.
+	if got := ExpandRoot("music"); !filepath.IsAbs(got) || filepath.Base(got) != "music" {
+		t.Errorf("ExpandRoot(music) = %q, want an absolute path", got)
 	}
 }
 
@@ -294,5 +297,80 @@ func TestLoadIndexRecovers(t *testing.T) {
 				t.Errorf("LoadIndex = %+v, %v; want an empty index", ix, err)
 			}
 		})
+	}
+}
+
+// WalkDir does not follow a root that is a symlink, such as ~/Music that
+// points at the share.
+func TestScanFollowsSymlinkedRoot(t *testing.T) {
+	base := t.TempDir()
+	real := filepath.Join(base, "real")
+	writeMP3(t, filepath.Join(real, "sub", "a.mp3"), tagsFor("A", "X", "Y", 1))
+	link := filepath.Join(base, "link")
+	if err := os.Symlink(real, link); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	ix, res, err := Scan(context.Background(), []string{link}, nil, 1, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ix.Len() != 1 || len(res.Unavailable) != 0 {
+		t.Fatalf("Len = %d, result = %+v; want the file below the link", ix.Len(), res)
+	}
+	// The root keeps the configured path, so IDs and track paths use it.
+	if ix.Roots[0].Path != link {
+		t.Errorf("root path = %q, want %q", ix.Roots[0].Path, link)
+	}
+	// A rescan through the link sees the file as unchanged.
+	again, res, err := Scan(context.Background(), []string{link}, ix, 1, nil)
+	if err != nil || again.Len() != 1 || res.Unchanged != 1 {
+		t.Errorf("rescan: Len = %d, result = %+v, err = %v", again.Len(), res, err)
+	}
+}
+
+// A folder that the walk could not read is not proof that its files are gone:
+// the cached entries below it stay.
+func TestReadRootKeepsFilesBelowSkippedPaths(t *testing.T) {
+	root := t.TempDir()
+	writeMP3(t, filepath.Join(root, "ok", "a.mp3"), tagsFor("A", "X", "Y", 1))
+	prev := &Root{Path: root, Files: []File{
+		{Rel: "gone/b.mp3", Title: "B"},
+		{Rel: "gone/deep/c.mp3", Title: "C"},
+		{Rel: "gone2/d.mp3", Title: "D"},
+		{Rel: "ok/a.mp3", Title: "stale"},
+	}}
+	cands := []candidate{{rel: "ok/a.mp3", modUnix: 1, size: 1}}
+
+	files, counts, err := readRoot(context.Background(), root, cands, []string{"gone"}, prev, 1, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for _, f := range files {
+		got = append(got, f.Rel)
+	}
+	// gone/ is kept, gone2/ is a different folder and is removed, and a.mp3 is re-read.
+	if want := []string{"gone/b.mp3", "gone/deep/c.mp3", "ok/a.mp3"}; !slices.Equal(got, want) {
+		t.Errorf("files = %v, want %v", got, want)
+	}
+	if counts.Removed != 1 || counts.Updated != 1 || counts.Unchanged != 2 {
+		t.Errorf("counts = %+v", counts)
+	}
+	if !underSkipped("gone/x.mp3", []string{"gone"}) || underSkipped("gone2/x.mp3", []string{"gone"}) || !underSkipped("gone", []string{"gone"}) {
+		t.Error("underSkipped matches a folder by name prefix, not by path")
+	}
+}
+
+// A file with artist and album tags but no title keeps those tags.
+func TestScanKeepsTagsWithoutTitle(t *testing.T) {
+	root := t.TempDir()
+	writeMP3(t, filepath.Join(root, "track7.mp3"), map[string]string{"TPE1": "Real Artist", "TALB": "Real Album", "TPE2": "Real Artist", "TRCK": "07"})
+	ix, _, err := Scan(context.Background(), []string{root}, nil, 1, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f := ix.Roots[0].Files[0]
+	if f.Title != "track7" || f.Artist != "Real Artist" || f.Album != "Real Album" || f.AlbumArtist != "Real Artist" || f.TrackNumber != 7 {
+		t.Errorf("file = %+v; want the tags kept and the title from the file name", f)
 	}
 }

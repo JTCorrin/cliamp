@@ -8,6 +8,7 @@ import (
 	"context"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/bjarneo/cliamp/applog"
 	"github.com/bjarneo/cliamp/config"
@@ -101,10 +102,24 @@ func (p *Provider) Name() string { return "Library" }
 // while a scan runs.
 func (p *Provider) Refresh() { p.startScan() }
 
-// Close stops a running scan and waits for it.
+// closeTimeout bounds how long Close waits for a scan. A scan checks for
+// cancellation between files, so a read that hangs on a stalled share holds
+// it up, and the application must still be able to exit.
+const closeTimeout = 3 * time.Second
+
+// Close stops a running scan and waits for it, up to closeTimeout.
 func (p *Provider) Close() {
 	p.cancel()
-	p.wg.Wait()
+	done := make(chan struct{})
+	go func() {
+		p.wg.Wait()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(closeTimeout):
+		applog.Warn("library: a scan did not stop; the share may be stalled")
+	}
 }
 
 // Status returns the state of the scans.
