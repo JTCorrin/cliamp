@@ -26,3 +26,15 @@ paths = ["/mnt/nas/music"]
 
 Set `provider = "library"` to open cliamp on the library, or start it with
 `cliamp --provider library`.
+
+## Search
+
+Press `Ctrl+F` while the Library is the active provider. The query is split
+into words. A track matches when every word appears in its title, artist or
+album, in any order and in any case, and accents do not count: `beyonce` finds
+`Beyoncé`. A match at the start of a field or of a word ranks higher, and a
+title match ranks higher than an artist match, which ranks higher than an album
+match. When no track holds every word, the search falls back to the letters of
+the query in order, so `mny` finds `Money`.
+
+Search reads the index in memory, so it does not touch the share.

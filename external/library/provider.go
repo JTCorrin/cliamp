@@ -44,7 +44,8 @@ type Provider struct {
 	wg     sync.WaitGroup
 
 	mu     sync.RWMutex
-	idx    *Index // never changed after it is stored: a scan builds a new one
+	idx    *Index       // never changed after it is stored: a scan builds a new one
+	search *searchIndex // the searchable form of idx, built on first use
 	status Status
 }
 

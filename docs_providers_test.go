@@ -97,8 +97,9 @@ func TestDocsNameProviderCapabilities(t *testing.T) {
 			file:    "keybindings.md",
 			list:    regexp.MustCompile("Other `Ctrl\\+F` providers, including ([^.]+), send the"),
 			capable: isSearcher,
-			// The list above it names Local, which matches local.
-			skip: []string{"local"},
+			// The list above it names Local and Library, which search on this
+			// computer.
+			skip: []string{"local", "library"},
 			// YouTube needs yt-dlp, so everyProviderConfig leaves it off.
 			extra: []string{"YouTube"},
 		},
