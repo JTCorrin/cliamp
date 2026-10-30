@@ -422,6 +422,12 @@ func (p *Provider) statusLine() string {
 	case len(st.Last.Unavailable) > 0:
 		return "Not readable, showing the saved index: " + strings.Join(st.Last.Unavailable, ", ")
 	}
+	p.mu.RLock()
+	folders := len(p.roots)
+	p.mu.RUnlock()
+	if folders == 0 {
+		return "No music folder yet. Add one to start"
+	}
 	switch n := p.index().Len(); n {
 	case 0:
 		return "No tracks indexed. Press Ctrl+R to scan"

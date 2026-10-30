@@ -78,10 +78,10 @@ var providerKeys = []providerKey{
 	{key: "cliamp", name: "cliamp radio"},
 	{key: "radio", name: "Radio"},
 	{key: "podcast", name: "Podcasts"},
+	{key: "library", name: "Library"},
 	{key: "navidrome", name: "Navidrome", optional: true},
 	{key: "lyrion", name: "Lyrion", optional: true},
 	{key: "plex", name: "Plex", optional: true},
-	{key: "library", name: "Library", optional: true},
 	{key: "jellyfin", name: "Jellyfin", optional: true},
 	{key: "emby", name: "Emby", optional: true},
 	{key: "spotify", name: "Spotify", optional: true},
@@ -170,6 +170,15 @@ func buildProviders(cfg config.Config, interactive bool) *providerSet {
 		logProviderSkipped("Local", "local", "config directory unavailable")
 	}
 	add("podcast", podcast.New(cfg.Podcast.Country))
+	// The library is always on, like the local source: with no folder it waits
+	// for the first one, which the user adds while cliamp runs.
+	lib := library.NewFromConfig(cfg.Library)
+	lib.SetSaveRoots(config.SaveLibraryPaths)
+	// The playlists of the library are the local playlists.
+	if s.local != nil {
+		lib.SetPlaylists(s.local)
+	}
+	add("library", lib)
 
 	// A configured server takes precedence over the environment variables.
 	nav := navidrome.NewFromConfig(cfg.Navidrome)
@@ -193,13 +202,6 @@ func buildProviders(cfg config.Config, interactive bool) *providerSet {
 	}
 	if p := plex.NewFromConfig(cfg.Plex); p != nil {
 		add("plex", p)
-	}
-	if p := library.NewFromConfig(cfg.Library); p != nil {
-		// The playlists of the library are the local playlists.
-		if s.local != nil {
-			p.SetPlaylists(s.local)
-		}
-		add("library", p)
 	}
 	if p := jellyfin.NewFromConfig(cfg.Jellyfin); p != nil {
 		add("jellyfin", p)

@@ -40,7 +40,7 @@ func isolateProviderEnv(t *testing.T) {
 }
 
 func TestBuildProviders(t *testing.T) {
-	always := []string{"cliamp", "radio", "local", "podcast"}
+	always := []string{"cliamp", "radio", "local", "podcast", "library"}
 	for _, tt := range []struct {
 		name string
 		cfg  config.Config
@@ -62,9 +62,10 @@ func TestBuildProviders(t *testing.T) {
 			want: append(slices.Clone(always), "emby"),
 		},
 		{
-			name: "library only",
-			cfg:  config.Config{Library: config.LibraryConfig{Paths: []string{"/mnt/nas/music"}}},
-			want: append(slices.Clone(always), "library"),
+			// The library is always on, with or without a folder.
+			name: "library with a folder",
+			cfg:  config.Config{Library: config.LibraryConfig{Paths: []string{"/mnt/nas/music"}, ScanDisabled: true}},
+			want: always,
 		},
 		{
 			name: "navidrome and plex",

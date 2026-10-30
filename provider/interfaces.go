@@ -405,6 +405,23 @@ type GenreLabeler interface {
 	GenreLabel() string
 }
 
+// LibraryManager is implemented by providers that index music folders and let
+// the user change which folders they index while cliamp runs.
+type LibraryManager interface {
+	// LibraryRoots lists the folders in the order they were added.
+	LibraryRoots() []LibraryRoot
+	// AddLibraryRoot adds a folder, saves the change and starts a scan. It
+	// returns the folder as stored, which is absolute. It fails for a path
+	// that is not a folder, that is already in the library, or that overlaps
+	// a folder of the library.
+	AddLibraryRoot(path string) (string, error)
+	// RemoveLibraryRoot drops a folder and the files of the index below it.
+	RemoveLibraryRoot(path string) error
+	// RescanLibrary scans the folders for new, changed and removed files. A
+	// scan that already runs is followed by one more.
+	RescanLibrary()
+}
+
 // Closer is implemented by providers that hold resources (sessions,
 // connections) that should be released on shutdown.
 type Closer interface {

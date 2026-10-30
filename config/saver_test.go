@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -573,5 +574,57 @@ func TestSaveConcurrentWritersKeepEveryKey(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+func TestSaveLibraryPaths(t *testing.T) {
+	home := withHome(t)
+	dir := filepath.Join(home, ".config", "cliamp")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	initial := "# keep\n[library]\n# my share\npaths = [\"/old\"]\nworkers = 8\n[other]\npaths = [\"untouched\"]\n"
+	if err := os.WriteFile(filepath.Join(dir, "config.toml"), []byte(initial), 0o600); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	want := []string{"/mnt/nas/music", `/mnt/with "quote" # and hash`, "/home/me/Music"}
+	if err := SaveLibraryPaths(want); err != nil {
+		t.Fatalf("SaveLibraryPaths: %v", err)
+	}
+	got := readConfig(t, home)
+	for _, keep := range []string{"# keep", "# my share", "workers = 8", "[other]\npaths = [\"untouched\"]"} {
+		if !strings.Contains(got, keep) {
+			t.Errorf("config lost %q:\n%s", keep, got)
+		}
+	}
+	// The saved list reads back to the same folders, quotes and hash included.
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if !reflect.DeepEqual(cfg.Library.Paths, want) {
+		t.Errorf("paths = %q, want %q", cfg.Library.Paths, want)
+	}
+	if cfg.Library.Workers != 8 {
+		t.Errorf("workers = %d, want 8", cfg.Library.Workers)
+	}
+
+	if err := SaveLibraryPaths(nil); err != nil {
+		t.Fatalf("SaveLibraryPaths(nil): %v", err)
+	}
+	cfg, err = Load()
+	if err != nil || cfg.Library.IsSet() {
+		t.Errorf("after clearing: IsSet = %v, err = %v; want no folder", cfg.Library.IsSet(), err)
+	}
+}
+
+func TestSaveLibraryPathsCreatesSection(t *testing.T) {
+	home := withHome(t)
+	if err := SaveLibraryPaths([]string{"/mnt/music"}); err != nil {
+		t.Fatalf("SaveLibraryPaths: %v", err)
+	}
+	if got := readConfig(t, home); !strings.Contains(got, "[library]") || !strings.Contains(got, `paths = ["/mnt/music"]`) {
+		t.Fatalf("library section missing:\n%s", got)
 	}
 }

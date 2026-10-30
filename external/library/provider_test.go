@@ -12,11 +12,10 @@ func TestNewFromConfig(t *testing.T) {
 	tests := []struct {
 		name        string
 		cfg         config.LibraryConfig
-		wantNil     bool
 		wantWorkers int
 		wantScan    bool
 	}{
-		{name: "no paths", cfg: config.LibraryConfig{}, wantNil: true},
+		{name: "no paths", cfg: config.LibraryConfig{}, wantWorkers: config.DefaultLibraryWorkers, wantScan: true},
 		{name: "defaults", cfg: config.LibraryConfig{Paths: []string{"/a"}}, wantWorkers: config.DefaultLibraryWorkers, wantScan: true},
 		{name: "workers", cfg: config.LibraryConfig{Paths: []string{"/a"}, Workers: 9}, wantWorkers: 9, wantScan: true},
 		{name: "scan off", cfg: config.LibraryConfig{Paths: []string{"/a"}, ScanDisabled: true}, wantWorkers: config.DefaultLibraryWorkers},
@@ -25,11 +24,8 @@ func TestNewFromConfig(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Setenv("HOME", t.TempDir())
 			p := NewFromConfig(tt.cfg)
-			if (p == nil) != tt.wantNil {
-				t.Fatalf("NewFromConfig nil = %v, want %v", p == nil, tt.wantNil)
-			}
 			if p == nil {
-				return
+				t.Fatal("NewFromConfig returned nil: the provider must exist without a folder")
 			}
 			t.Cleanup(p.Close)
 			if p.workers != tt.wantWorkers || p.scan != tt.wantScan {

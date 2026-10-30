@@ -55,6 +55,16 @@ type SortType struct {
 	Label string // e.g. "By Name"
 }
 
+// LibraryRoot describes one music folder of a library provider.
+type LibraryRoot struct {
+	Path string
+	// Tracks is the number of files that the index holds for the folder.
+	Tracks int
+	// Available is false when the last scan could not read the folder, such
+	// as a share that is not mounted. The index still serves its saved files.
+	Available bool
+}
+
 // YearFromDate extracts the year from a "YYYY-MM-DD" (or bare "YYYY") date
 // string, as returned by streaming-service APIs. Returns 0 when the string
 // does not start with a 4-digit year.

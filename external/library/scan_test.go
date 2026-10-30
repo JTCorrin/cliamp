@@ -374,3 +374,10 @@ func TestScanKeepsTagsWithoutTitle(t *testing.T) {
 		t.Errorf("file = %+v; want the tags kept and the title from the file name", f)
 	}
 }
+
+func testContext(t *testing.T) context.Context {
+	t.Helper()
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	return ctx
+}

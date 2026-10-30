@@ -55,6 +55,15 @@ func ExpandRoot(path string) string {
 	return filepath.Clean(path)
 }
 
+// AbsPath returns path as an absolute, cleaned path with a leading ~ expanded.
+// A client sends it to a running cliamp, whose working directory differs.
+func AbsPath(path string) (string, error) {
+	if path == "" {
+		return "", fmt.Errorf("library: the folder is empty")
+	}
+	return ExpandRoot(path), nil
+}
+
 // Scan reads the music folders of roots into a new index. Files that are
 // unchanged in old, by size and modification time, keep their tags, so a
 // rescan reads only new and changed files. workers is the number of files

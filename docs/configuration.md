@@ -368,11 +368,11 @@ Each provider section turns on its provider in one of three ways:
 
 | Rule | Providers | The provider starts when |
 | --- | --- | --- |
-| Credentials | Navidrome, Lyrion, Bandcamp, Plex, Jellyfin, Emby, Audiobookshelf, Library | The section holds the required credentials. Lyrion needs only `url`. Bandcamp needs `user` and `password`; its `url` is optional. Library needs only `paths`. |
+| Credentials | Navidrome, Lyrion, Bandcamp, Plex, Jellyfin, Emby, Audiobookshelf | The section holds the required credentials. Lyrion needs only `url`. Bandcamp needs `user` and `password`; its `url` is optional. |
 | Section | Spotify, Qobuz, Tidal, YouTube Music | The section header exists. Set `enabled = false` to turn the provider off. |
 | Opt-in | SoundCloud, Mixcloud, NetEase, Yandex | The section sets `enabled = true`. Yandex also needs `token`. |
 
-Radio and podcasts are always on. Their sections only tune them.
+Radio, podcasts and the Library are always on. Their sections only tune them. The Library has no folder until you add one, with `A` in its provider pane, with `cliamp library add`, or in the `[library]` section.
 
 ```toml
 # Section rule: the header alone turns on Tidal.

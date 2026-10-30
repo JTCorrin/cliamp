@@ -644,14 +644,15 @@ const DefaultLibraryWorkers = 4
 
 // LibraryConfig holds the settings of the indexed library that scans music
 // folders, such as a mounted NAS share, and serves them with search and
-// browse. Enable rule: credentials, where paths alone is enough.
+// browse. The library is always on, so it has no enable rule: with no paths it
+// waits for the first folder, which the user adds while cliamp runs.
 type LibraryConfig struct {
 	Paths        []string // music root folders to index
 	Workers      int      // concurrent tag readers; 0 uses DefaultLibraryWorkers
 	ScanDisabled bool     // true only when "scan_on_start = false" is explicitly set
 }
 
-// IsSet reports whether the library has at least one root folder.
+// IsSet reports whether the library has at least one folder.
 func (l LibraryConfig) IsSet() bool {
 	return len(l.Paths) > 0
 }
@@ -1294,6 +1295,17 @@ func SaveMixcloudStyles(styles []string) error {
 		quoted = append(quoted, QuoteString(style))
 	}
 	return SaveSection("mixcloud", []KeyValue{{"styles", "[" + strings.Join(quoted, ", ") + "]"}}, nil)
+}
+
+// SaveLibraryPaths persists the music folders of the [library] section
+// without disturbing its other settings or any comment. An empty list writes
+// an empty paths list, which leaves the library with no folder.
+func SaveLibraryPaths(paths []string) error {
+	quoted := make([]string, 0, len(paths))
+	for _, path := range paths {
+		quoted = append(quoted, QuoteString(path))
+	}
+	return SaveSection("library", []KeyValue{{"paths", "[" + strings.Join(quoted, ", ") + "]"}}, nil)
 }
 
 // KeyValue is one key line for SaveSection. Value is the TOML text of the
