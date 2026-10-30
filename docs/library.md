@@ -38,3 +38,19 @@ match. When no track holds every word, the search falls back to the letters of
 the query in order, so `mny` finds `Money`.
 
 Search reads the index in memory, so it does not touch the share.
+
+## Browse
+
+The provider pane lists **Artists** and **Albums** next to your playlists.
+
+- **Artists** opens artist, then album, then tracks. Albums are oldest first.
+- **Albums** lists every album. Press `s` to sort it by name, artist, recently
+  added or year.
+
+Tracks group by the album artist tag, and by the artist tag when a file has no
+album artist. A folder whose files share an album name but name several artists,
+with no album artist tag, shows as one album under **Various Artists**. Names
+that differ only in case, such as `Pink Floyd` and `pink floyd`, are one
+artist, and the spelling that most files use is shown. Sorting ignores a
+leading `The`. Files with no artist or album tag appear under **Unknown Artist**
+and **Unknown Album**.

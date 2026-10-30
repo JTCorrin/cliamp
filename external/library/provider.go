@@ -46,6 +46,7 @@ type Provider struct {
 	mu     sync.RWMutex
 	idx    *Index       // never changed after it is stored: a scan builds a new one
 	search *searchIndex // the searchable form of idx, built on first use
+	browse *browseIndex // the artists and albums of idx, built on first use
 	status Status
 }
 
