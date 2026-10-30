@@ -54,3 +54,18 @@ that differ only in case, such as `Pink Floyd` and `pink floyd`, are one
 artist, and the spelling that most files use is shown. Sorting ignores a
 leading `The`. Files with no artist or album tag appear under **Unknown Artist**
 and **Unknown Album**.
+
+## Playlists
+
+The playlists of the Library are your local playlists, the TOML files in
+`~/.config/cliamp/playlists/`. See [playlists.md](playlists.md). Creating,
+renaming, deleting and reordering a playlist work as they do for the Local
+provider.
+
+To add a track from a search, press `Ctrl+F`, pick a result, press `p`, and
+choose a playlist or **New Playlist**. To add an album, open it in **Albums** or
+**Artists** and use the playlist keys of the browser.
+
+A playlist file holds the full path of each track and its tags, so it plays
+without the Library and without a scan. It stops playing when the share is not
+mounted at the same path. Keep the mount point stable, such as `/mnt/nas/music`.

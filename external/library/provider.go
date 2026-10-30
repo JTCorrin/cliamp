@@ -6,7 +6,6 @@ package library
 
 import (
 	"context"
-	"fmt"
 	"path/filepath"
 	"sync"
 
@@ -44,9 +43,10 @@ type Provider struct {
 	wg     sync.WaitGroup
 
 	mu     sync.RWMutex
-	idx    *Index       // never changed after it is stored: a scan builds a new one
-	search *searchIndex // the searchable form of idx, built on first use
-	browse *browseIndex // the artists and albums of idx, built on first use
+	idx    *Index        // never changed after it is stored: a scan builds a new one
+	search *searchIndex  // the searchable form of idx, built on first use
+	browse *browseIndex  // the artists and albums of idx, built on first use
+	store  PlaylistStore // where the playlists are kept, or nil
 	status Status
 }
 
@@ -96,17 +96,6 @@ func newProvider(cfg config.LibraryConfig, indexPath string) *Provider {
 
 // Name returns the display name used in the provider selector.
 func (p *Provider) Name() string { return "Library" }
-
-// Playlists returns the playlists of the library. It has none until the
-// browse and playlist views are in place.
-func (p *Provider) Playlists() ([]playlist.PlaylistInfo, error) {
-	return nil, nil
-}
-
-// Tracks returns the tracks of a playlist of the library.
-func (p *Provider) Tracks(playlistID string) ([]playlist.Track, error) {
-	return nil, fmt.Errorf("library: unknown playlist %q", playlistID)
-}
 
 // Refresh starts a scan for new, changed and removed files. It does nothing
 // while a scan runs.

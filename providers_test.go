@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -292,5 +293,37 @@ func TestServerResumeSaver(t *testing.T) {
 				t.Fatalf("saved state = %+v, want %+v", got, tt.want)
 			}
 		})
+	}
+}
+
+// The playlists of the library are the local playlists, so a playlist that
+// the library creates shows in the local provider.
+func TestBuildProvidersLibraryUsesLocalPlaylists(t *testing.T) {
+	isolateProviderEnv(t)
+	set := buildProviders(config.Config{Library: config.LibraryConfig{Paths: []string{t.TempDir()}, ScanDisabled: true}}, false)
+	t.Cleanup(set.Close)
+	var lib playlist.Provider
+	for _, e := range set.entries {
+		if e.Key == "library" {
+			lib = e.Provider
+		}
+	}
+	if lib == nil {
+		t.Fatal("the library is not registered")
+	}
+	creator, ok := lib.(provider.PlaylistCreator)
+	if !ok {
+		t.Fatal("the library cannot create playlists")
+	}
+	if _, err := creator.CreatePlaylist(context.Background(), "From library"); err != nil {
+		t.Fatalf("CreatePlaylist: %v", err)
+	}
+	lists, err := set.local.Playlists()
+	if err != nil || !slices.ContainsFunc(lists, func(pl playlist.PlaylistInfo) bool { return pl.Name == "From library" }) {
+		t.Errorf("local playlists = %+v, %v; want From library", lists, err)
+	}
+	lists, err = lib.Playlists()
+	if err != nil || !slices.ContainsFunc(lists, func(pl playlist.PlaylistInfo) bool { return pl.Name == "From library" }) {
+		t.Errorf("library playlists = %+v, %v; want From library", lists, err)
 	}
 }

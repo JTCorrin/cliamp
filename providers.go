@@ -195,6 +195,10 @@ func buildProviders(cfg config.Config, interactive bool) *providerSet {
 		add("plex", p)
 	}
 	if p := library.NewFromConfig(cfg.Library); p != nil {
+		// The playlists of the library are the local playlists.
+		if s.local != nil {
+			p.SetPlaylists(s.local)
+		}
 		add("library", p)
 	}
 	if p := jellyfin.NewFromConfig(cfg.Jellyfin); p != nil {
