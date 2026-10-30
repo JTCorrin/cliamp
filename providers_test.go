@@ -61,6 +61,11 @@ func TestBuildProviders(t *testing.T) {
 			want: append(slices.Clone(always), "emby"),
 		},
 		{
+			name: "library only",
+			cfg:  config.Config{Library: config.LibraryConfig{Paths: []string{"/mnt/nas/music"}}},
+			want: append(slices.Clone(always), "library"),
+		},
+		{
 			name: "navidrome and plex",
 			cfg: config.Config{
 				Navidrome: config.NavidromeConfig{URL: "https://nd.example.com", User: "user", Password: "secret"},

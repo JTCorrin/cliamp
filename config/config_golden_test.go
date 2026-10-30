@@ -92,6 +92,11 @@ url = "http://plex.local:32400"
 token = plex#token
 libraries = ["Music", "Jazz"]
 
+[library]
+paths = ["/mnt/nas/music", "~/Music # old"]
+workers = 8
+scan_on_start = false
+
 [jellyfin]
 url = https://jelly.example.com/web/#/home
 token = "jelly-token"
@@ -245,6 +250,7 @@ func TestLoadGolden(t *testing.T) {
 		ExpandPlaylist: &f,
 	}
 	sectionsWant.Plex = PlexConfig{URL: "http://plex.local:32400", Token: "plex#token", Libraries: []string{"Music", "Jazz"}}
+	sectionsWant.Library = LibraryConfig{Paths: []string{"/mnt/nas/music", "~/Music # old"}, Workers: 8, ScanDisabled: true}
 	sectionsWant.Jellyfin = JellyfinConfig{
 		URL:      "https://jelly.example.com/web/#/home",
 		Token:    "jelly-token",
@@ -367,6 +373,7 @@ func TestLoadGolden(t *testing.T) {
 	allWant.NetEase = NetEaseConfig{Enabled: true, CookiesFrom: "chrome", UserID: "optional-account-user-id"}
 	allWant.Yandex = YandexConfig{Enabled: true, Token: "y0_YourPersonalOAuthToken"}
 	allWant.Plex = PlexConfig{URL: "http://192.168.1.10:32400", Token: "xxxxxxxxxxxxxxxxxxxx", Libraries: []string{"Music", "Jazz"}}
+	allWant.Library = LibraryConfig{Paths: []string{"/mnt/nas/music"}, Workers: 4}
 	allWant.Jellyfin = JellyfinConfig{
 		URL:      "https://jellyfin.example.com",
 		Token:    "optional-api-token",

@@ -17,6 +17,7 @@ import (
 	"github.com/bjarneo/cliamp/external/bandcamp"
 	"github.com/bjarneo/cliamp/external/emby"
 	"github.com/bjarneo/cliamp/external/jellyfin"
+	"github.com/bjarneo/cliamp/external/library"
 	"github.com/bjarneo/cliamp/external/local"
 	"github.com/bjarneo/cliamp/external/lyrion"
 	"github.com/bjarneo/cliamp/external/mixcloud"
@@ -80,6 +81,7 @@ var providerKeys = []providerKey{
 	{key: "navidrome", name: "Navidrome", optional: true},
 	{key: "lyrion", name: "Lyrion", optional: true},
 	{key: "plex", name: "Plex", optional: true},
+	{key: "library", name: "Library", optional: true},
 	{key: "jellyfin", name: "Jellyfin", optional: true},
 	{key: "emby", name: "Emby", optional: true},
 	{key: "spotify", name: "Spotify", optional: true},
@@ -191,6 +193,9 @@ func buildProviders(cfg config.Config, interactive bool) *providerSet {
 	}
 	if p := plex.NewFromConfig(cfg.Plex); p != nil {
 		add("plex", p)
+	}
+	if p := library.NewFromConfig(cfg.Library); p != nil {
+		add("library", p)
 	}
 	if p := jellyfin.NewFromConfig(cfg.Jellyfin); p != nil {
 		add("jellyfin", p)

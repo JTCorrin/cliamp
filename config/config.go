@@ -638,6 +638,41 @@ func (p *PlexConfig) set(key, val string) {
 	}
 }
 
+// DefaultLibraryWorkers is the number of concurrent tag readers a library
+// scan uses when the section does not set workers.
+const DefaultLibraryWorkers = 4
+
+// LibraryConfig holds the settings of the indexed library that scans music
+// folders, such as a mounted NAS share, and serves them with search and
+// browse. Enable rule: credentials, where paths alone is enough.
+type LibraryConfig struct {
+	Paths        []string // music root folders to index
+	Workers      int      // concurrent tag readers; 0 uses DefaultLibraryWorkers
+	ScanDisabled bool     // true only when "scan_on_start = false" is explicitly set
+}
+
+// IsSet reports whether the library has at least one root folder.
+func (l LibraryConfig) IsSet() bool {
+	return len(l.Paths) > 0
+}
+
+// set applies one key of the [library] section.
+func (l *LibraryConfig) set(key, val string) {
+	switch key {
+	case "paths":
+		l.Paths = parseStringSlice(val)
+	case "workers":
+		if v, ok := parseInt(val); ok && v > 0 {
+			l.Workers = v
+		}
+	case "scan_on_start":
+		// Opt-out: only mark disabled when the value is explicitly false.
+		if v, ok := parseBool(val); ok {
+			l.ScanDisabled = !v
+		}
+	}
+}
+
 // JellyfinConfig holds credentials for a Jellyfin server.
 // URL is required. Authenticate either with Token, or with User+Password.
 // UserID is optional and can be discovered lazily.
@@ -789,6 +824,7 @@ type Config struct {
 	Tidal            TidalConfig                  // optional Tidal provider (requires subscription)
 	YouTubeMusic     YouTubeMusicConfig           // optional YouTube Music provider
 	Plex             PlexConfig                   // optional Plex Media Server credentials
+	Library          LibraryConfig                // optional indexed library of local or mounted music folders
 	Jellyfin         JellyfinConfig               // optional Jellyfin server credentials
 	Emby             EmbyConfig                   // optional Emby server credentials
 	Audiobookshelf   AudiobookshelfConfig         // optional Audiobookshelf server credentials
@@ -906,6 +942,8 @@ func Load() (Config, error) {
 			cfg.YouTubeMusic.set(key, val)
 		case "plex":
 			cfg.Plex.set(key, val)
+		case "library":
+			cfg.Library.set(key, val)
 		case "radio":
 			cfg.Radio.set(key, val)
 		case "podcast":
