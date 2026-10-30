@@ -244,6 +244,38 @@ func TestBrowseEntries(t *testing.T) {
 	}
 }
 
+func TestBrowseEntriesShowScanState(t *testing.T) {
+	tests := []struct {
+		name   string
+		status Status
+		want   string // the name of the third entry, or empty for none
+	}{
+		{"idle", Status{}, ""},
+		{"scanning, count unknown", Status{Scanning: true}, "Scanning for new files"},
+		{"scanning", Status{Scanning: true, Progress: Progress{Done: 12, Total: 50}}, "Scanning: 12 of 50 new files"},
+		{"failed", Status{Err: "boom"}, "Scan failed: boom"},
+		{"unmounted", Status{Last: ScanResult{Unavailable: []string{"/mnt/a", "/mnt/b"}}}, "Not readable, showing the saved index: /mnt/a, /mnt/b"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := browseFixture(t)
+			p.mu.Lock()
+			p.status = tt.status
+			p.mu.Unlock()
+			entries := p.BrowseEntries()
+			if tt.want == "" {
+				if len(entries) != 2 {
+					t.Fatalf("entries = %+v, want only Artists and Albums", entries)
+				}
+				return
+			}
+			if len(entries) != 3 || entries[2].Name != tt.want || entries[2].ID != entryStatus {
+				t.Errorf("entries = %+v, want a status entry %q", entries, tt.want)
+			}
+		})
+	}
+}
+
 func BenchmarkBuildBrowseIndex100k(b *testing.B) {
 	p := testProvider(b, syntheticFiles(100_000))
 	ix := p.index()

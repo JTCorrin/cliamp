@@ -4,9 +4,6 @@ The library provider indexes folders of music files, such as a share of a NAS
 that is mounted on your computer, so that cliamp can search them, browse them
 by artist and album, and play them without a media server.
 
-This provider is under development. Setup and features are listed here as they
-land.
-
 ## Setup
 
 Mount the share, then add the folders to `config.toml`:
@@ -25,7 +22,8 @@ paths = ["/mnt/nas/music"]
 | `scan_on_start` | `true` | Rescan for new and changed files in the background at start. |
 
 Set `provider = "library"` to open cliamp on the library, or start it with
-`cliamp --provider library`.
+`cliamp --provider library`. While cliamp runs, press `Tab` to focus **Source**,
+choose **Library** with `Left` and `Right`, and press `Enter`.
 
 ## Search
 
@@ -63,9 +61,39 @@ renaming, deleting and reordering a playlist work as they do for the Local
 provider.
 
 To add a track from a search, press `Ctrl+F`, pick a result, press `p`, and
-choose a playlist or **New Playlist**. To add an album, open it in **Albums** or
-**Artists** and use the playlist keys of the browser.
+choose a playlist or **New Playlist**.
+
+To save an album, open it in **Albums** or **Artists**, press `a` to append it to
+the queue, then press `p` for the playlist screen and `w` to save the queue with
+the playlist picker. The same works for any selection of tracks.
 
 A playlist file holds the full path of each track and its tags, so it plays
 without the Library and without a scan. It stops playing when the share is not
 mounted at the same path. Keep the mount point stable, such as `/mnt/nas/music`.
+
+## Scanning
+
+cliamp scans the folders at start and saves what it reads in
+`~/.local/share/cliamp/library/index.gob`. Every later start loads that index at
+once, so search and browse work before the scan ends, and a scan reads only new
+and changed files. A file counts as changed when its size or modification time
+differs.
+
+While a scan runs, the provider pane shows a **Scanning** line. Press `Ctrl+R`
+in the provider pane to scan again, for example after you add albums. The
+first scan of a large share can take minutes, because cliamp reads the tags of
+every file. Raise `workers` for a share with high latency.
+
+The scan skips dot files, such as the `._` files that macOS leaves on a share,
+and the `@eaDir` and `#recycle` folders of Synology. It does not follow
+symlinked folders.
+
+If the share is not mounted, or a folder holds no audio file while the index
+holds some, cliamp keeps the saved index for that folder and the provider pane
+shows **Not readable, showing the saved index**. A folder that is empty is never
+taken as proof that you deleted the music. Remove the folder from `paths` to
+drop its files from the index.
+
+Tags come from the file: ID3, MP4, Vorbis and FLAC tags, the WAV INFO list, and
+then the file name. The duration of a track shows once it plays. Playing an
+`.m4a`, `.opus`, `.aac` or `.wma` file needs `ffmpeg`.

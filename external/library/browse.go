@@ -39,6 +39,7 @@ const (
 const (
 	entryArtists = "library:artists"
 	entryAlbums  = "library:albums"
+	entryStatus  = "library:status"
 )
 
 type fileRef struct{ root, file int32 }
@@ -360,12 +361,26 @@ func (p *Provider) ArtistForTrack(track playlist.Track) (provider.ArtistInfo, bo
 }
 
 // BrowseEntries returns the routes that the provider pane lists next to the
-// playlists.
+// playlists. While a scan runs, and when a root could not be read, it adds a
+// line that says so: a first scan of a large share takes minutes, and an
+// unmounted share otherwise looks like a library that is merely out of date.
 func (p *Provider) BrowseEntries() []provider.BrowseEntry {
-	return []provider.BrowseEntry{
+	entries := []provider.BrowseEntry{
 		{ID: entryArtists, Name: "Artists", Mode: provider.BrowseArtistAlbums},
 		{ID: entryAlbums, Name: "Albums", Mode: provider.BrowseAlbums},
 	}
+	st := p.Status()
+	switch {
+	case st.Scanning && st.Progress.Total > 0:
+		entries = append(entries, provider.BrowseEntry{ID: entryStatus, Name: fmt.Sprintf("Scanning: %d of %d new files", st.Progress.Done, st.Progress.Total), Mode: provider.BrowseAlbums})
+	case st.Scanning:
+		entries = append(entries, provider.BrowseEntry{ID: entryStatus, Name: "Scanning for new files", Mode: provider.BrowseAlbums})
+	case st.Err != "":
+		entries = append(entries, provider.BrowseEntry{ID: entryStatus, Name: "Scan failed: " + st.Err, Mode: provider.BrowseAlbums})
+	case len(st.Last.Unavailable) > 0:
+		entries = append(entries, provider.BrowseEntry{ID: entryStatus, Name: "Not readable, showing the saved index: " + strings.Join(st.Last.Unavailable, ", "), Mode: provider.BrowseAlbums})
+	}
+	return entries
 }
 
 // find returns the position of the file at an absolute path.
