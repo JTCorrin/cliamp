@@ -63,6 +63,7 @@ type Response struct {
 	Albums     []AlbumInfo       `json:"albums,omitempty"`
 	Sorts      []SortInfo        `json:"sorts,omitempty"`
 	Roots      []LibraryRootInfo `json:"roots,omitempty"`
+	Scanning   bool              `json:"scanning,omitempty"`
 	Lyrics     []LyricLine       `json:"lyrics,omitempty"`
 	History    []HistoryInfo     `json:"history,omitempty"`
 	Devices    []DeviceInfo      `json:"devices,omitempty"`

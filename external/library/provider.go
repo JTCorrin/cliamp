@@ -54,6 +54,13 @@ type Provider struct {
 	roots     []string                   // the folders; replaced, never changed in place
 	saveRoots func(paths []string) error // saves the folders, or nil
 	rescan    bool                       // a scan follows the one that runs
+
+	// rootsMu serializes AddLibraryRoot and RemoveLibraryRoot, which check a
+	// folder and save the config while mu stays free for readers.
+	rootsMu sync.Mutex
+	// indexMu serializes writes of the index file, so the file always ends up
+	// with the newest index.
+	indexMu sync.Mutex
 }
 
 // NewFromConfig returns a Provider from a LibraryConfig. The provider exists
@@ -121,7 +128,11 @@ const closeTimeout = 3 * time.Second
 
 // Close stops a running scan and waits for it, up to closeTimeout.
 func (p *Provider) Close() {
+	// Cancel under the lock that startScan checks and adds to the wait group
+	// under, so no scan joins the group after the wait starts.
+	p.mu.Lock()
 	p.cancel()
+	p.mu.Unlock()
 	done := make(chan struct{})
 	go func() {
 		p.wg.Wait()
@@ -178,16 +189,15 @@ func (p *Provider) startScan() bool {
 		} else {
 			// A folder may have been removed while the scan ran.
 			next = pruneRoots(next, p.roots)
+			res.Unavailable = keepRoots(res.Unavailable, p.roots)
 			p.idx = next
 			p.status.Last = res
 		}
 		again := p.rescan && p.ctx.Err() == nil
 		p.rescan = false
 		p.mu.Unlock()
-		if err == nil && p.indexPath != "" {
-			if serr := SaveIndex(p.indexPath, next); serr != nil {
-				applog.Warn("library: %v", serr)
-			}
+		if err == nil {
+			p.saveIndex()
 		}
 		if err == nil {
 			applog.Info("library: scan found %d added, %d updated, %d removed, %d unchanged, %d skipped; %d unavailable roots",
@@ -198,6 +208,36 @@ func (p *Provider) startScan() bool {
 		}
 	}()
 	return true
+}
+
+// saveIndex writes the newest index to its file. Writes are serialized, and
+// each takes the index at the moment it runs, so an older index never lands
+// after a newer one.
+func (p *Provider) saveIndex() {
+	if p.indexPath == "" {
+		return
+	}
+	p.indexMu.Lock()
+	defer p.indexMu.Unlock()
+	idx := p.index()
+	if err := SaveIndex(p.indexPath, idx); err != nil {
+		applog.Warn("library: %v", err)
+	}
+}
+
+// keepRoots returns the paths of unavailable that are still folders of roots.
+func keepRoots(unavailable, roots []string) []string {
+	keep := make(map[string]bool, len(roots))
+	for _, r := range roots {
+		keep[ExpandRoot(r)] = true
+	}
+	var kept []string
+	for _, path := range unavailable {
+		if keep[path] {
+			kept = append(kept, path)
+		}
+	}
+	return kept
 }
 
 // pruneRoots returns ix without the roots that are not in roots. It returns

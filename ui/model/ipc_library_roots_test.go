@@ -13,9 +13,10 @@ import (
 
 // fakeLibrary is a provider that manages music folders in memory.
 type fakeLibrary struct {
-	roots   []provider.LibraryRoot
-	rescans int
-	addErr  error
+	roots    []provider.LibraryRoot
+	rescans  int
+	addErr   error
+	scanning bool
 }
 
 func (f *fakeLibrary) Name() string                                { return "Library" }
@@ -23,6 +24,7 @@ func (f *fakeLibrary) Playlists() ([]playlist.PlaylistInfo, error) { return nil,
 func (f *fakeLibrary) Tracks(string) ([]playlist.Track, error)     { return nil, nil }
 func (f *fakeLibrary) LibraryRoots() []provider.LibraryRoot        { return f.roots }
 func (f *fakeLibrary) RescanLibrary()                              { f.rescans++ }
+func (f *fakeLibrary) LibraryScanning() bool                       { return f.scanning }
 
 func (f *fakeLibrary) AddLibraryRoot(path string) (string, error) {
 	if f.addErr != nil {
@@ -69,9 +71,10 @@ func TestIPCLibraryRootsOperations(t *testing.T) {
 		t.Fatalf("library.remove_root = %+v, want the remaining folder", response)
 	}
 
+	lib.scanning = true
 	response = runV2(t, &m, "library.scan", ipc.Request{})
-	if !response.OK || lib.rescans != 1 {
-		t.Fatalf("library.scan = %+v with %d rescans, want 1", response, lib.rescans)
+	if !response.OK || lib.rescans != 1 || !response.Scanning || len(response.Roots) != 1 {
+		t.Fatalf("library.scan = %+v with %d rescans, want 1 rescan, scanning and the folders", response, lib.rescans)
 	}
 }
 

@@ -31,16 +31,33 @@ func (p *Provider) LibraryRoots() []provider.LibraryRoot {
 	return roots
 }
 
+// LibraryScanning reports whether a scan runs now.
+func (p *Provider) LibraryScanning() bool {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.status.Scanning
+}
+
 // within reports whether path is dir or lies below it.
 func within(dir, path string) bool {
 	rel, err := filepath.Rel(dir, path)
 	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }
 
+// resolved returns path with its symlinks followed, or path itself when it
+// cannot be resolved, such as a share that is not mounted.
+func resolved(path string) string {
+	if real, err := filepath.EvalSymlinks(path); err == nil {
+		return real
+	}
+	return path
+}
+
 // CheckNewRoot validates a folder that is about to join the folders in
 // existing. It returns the folder as it is stored: absolute and cleaned. The
 // folder must exist, must be a folder, and must not be one of the folders, hold
-// one, or lie inside one, because the files below it would be indexed twice.
+// one, or lie inside one, because the files below it would be indexed twice. A
+// link to a folder of the library counts as that folder.
 func CheckNewRoot(existing []string, path string) (string, error) {
 	if strings.TrimSpace(path) == "" {
 		return "", fmt.Errorf("library: the folder is empty")
@@ -53,14 +70,16 @@ func CheckNewRoot(existing []string, path string) (string, error) {
 	if !info.IsDir() {
 		return "", fmt.Errorf("library: %s is not a folder", root)
 	}
+	realRoot := resolved(root)
 	for _, have := range existing {
 		have = ExpandRoot(have)
+		realHave := resolved(have)
 		switch {
-		case have == root:
+		case have == root || realHave == realRoot:
 			return "", fmt.Errorf("library: %s is already in the library", root)
-		case within(have, root):
+		case within(have, root) || within(realHave, realRoot):
 			return "", fmt.Errorf("library: %s is inside %s, which is already in the library", root, have)
-		case within(root, have):
+		case within(root, have) || within(realRoot, realHave):
 			return "", fmt.Errorf("library: %s holds %s, which is already in the library; remove that folder first", root, have)
 		}
 	}
@@ -69,36 +88,31 @@ func CheckNewRoot(existing []string, path string) (string, error) {
 
 // AddLibraryRoot adds a folder, saves the list and starts a scan.
 func (p *Provider) AddLibraryRoot(path string) (string, error) {
-	// The folder check can wait on a slow share, so it runs before the lock.
+	// One change of the folder list at a time. The folder check can wait on a
+	// slow share and the save writes the config, so neither holds mu, which
+	// readers need.
+	p.rootsMu.Lock()
+	defer p.rootsMu.Unlock()
+
 	p.mu.RLock()
 	existing := slices.Clone(p.roots)
+	closed := p.ctx.Err() != nil
+	save := p.saveRoots
 	p.mu.RUnlock()
+	if closed {
+		return "", fmt.Errorf("library: closed")
+	}
 	root, err := CheckNewRoot(existing, path)
 	if err != nil {
 		return "", err
 	}
-
-	p.mu.Lock()
-	if p.ctx.Err() != nil {
-		p.mu.Unlock()
-		return "", fmt.Errorf("library: closed")
-	}
-	// A folder may have joined while the check ran: check again, without I/O.
-	for _, have := range p.roots {
-		if have2 := ExpandRoot(have); have2 == root || within(have2, root) || within(root, have2) {
-			p.mu.Unlock()
-			return "", fmt.Errorf("library: %s overlaps a folder that was just added", root)
-		}
-	}
-	next := append(slices.Clone(p.roots), root)
-	// The list is saved under the lock: a second add must see this folder,
-	// and saving the config is a short local write.
-	if p.saveRoots != nil {
-		if err := p.saveRoots(next); err != nil {
-			p.mu.Unlock()
+	next := append(existing, root)
+	if save != nil {
+		if err := save(next); err != nil {
 			return "", fmt.Errorf("library: save the folders: %w", err)
 		}
 	}
+	p.mu.Lock()
 	p.roots = next
 	p.mu.Unlock()
 	applog.Info("library: added folder %s", root)
@@ -106,31 +120,33 @@ func (p *Provider) AddLibraryRoot(path string) (string, error) {
 	return root, nil
 }
 
-// RemoveLibraryRoot drops a folder and the files of the index below it.
+// RemoveLibraryRoot drops a folder and the files of the index below it. It
+// never touches the music files.
 func (p *Provider) RemoveLibraryRoot(path string) error {
+	p.rootsMu.Lock()
+	defer p.rootsMu.Unlock()
+
 	root := ExpandRoot(path)
-	p.mu.Lock()
-	index := slices.IndexFunc(p.roots, func(r string) bool { return ExpandRoot(r) == root })
+	p.mu.RLock()
+	existing := slices.Clone(p.roots)
+	save := p.saveRoots
+	p.mu.RUnlock()
+	index := slices.IndexFunc(existing, func(r string) bool { return ExpandRoot(r) == root })
 	if index < 0 {
-		p.mu.Unlock()
 		return fmt.Errorf("library: %s is not in the library", root)
 	}
-	next := slices.Delete(slices.Clone(p.roots), index, index+1)
-	if p.saveRoots != nil {
-		if err := p.saveRoots(next); err != nil {
-			p.mu.Unlock()
+	next := slices.Delete(existing, index, index+1)
+	if save != nil {
+		if err := save(next); err != nil {
 			return fmt.Errorf("library: save the folders: %w", err)
 		}
 	}
+	p.mu.Lock()
 	p.roots = next
 	p.idx = pruneRoots(p.idx, next)
-	idx := p.idx
+	p.status.Last.Unavailable = keepRoots(p.status.Last.Unavailable, next)
 	p.mu.Unlock()
-	if p.indexPath != "" {
-		if err := SaveIndex(p.indexPath, idx); err != nil {
-			applog.Warn("library: %v", err)
-		}
-	}
+	p.saveIndex()
 	applog.Info("library: removed folder %s", root)
 	return nil
 }

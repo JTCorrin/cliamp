@@ -420,6 +420,9 @@ type LibraryManager interface {
 	// RescanLibrary scans the folders for new, changed and removed files. A
 	// scan that already runs is followed by one more.
 	RescanLibrary()
+	// LibraryScanning reports whether a scan runs now. A client that adds a
+	// folder or asks for a scan looks at the folder sizes until it ends.
+	LibraryScanning() bool
 }
 
 // Closer is implemented by providers that hold resources (sessions,

@@ -132,6 +132,14 @@ Run `cliamp remote capabilities` to get the current machine-readable list.
 | Saved playlists | `playlist.create`, `playlist.rename`, `playlist.delete`, `playlist.add`, `playlist.add_many`, `playlist.replace`, `playlist.remove`, `playlist.bookmark` |
 | Plugins | `plugin.call`, `plugin.commands` |
 
+`library.roots`, `library.add_root`, `library.remove_root` and `library.scan`
+each reply with `roots`, the folders as they are after the change, with the
+`path`, the number of indexed `tracks` and whether the last scan could read the
+folder (`available`). `scanning` is true while a scan runs, so a client that
+added a folder can look at the folder sizes until it turns false. `add_root`
+also returns the folder as stored in `output`. The calls take an optional
+`provider` key and default to `library`.
+
 `queue.*` applies to the live playlist. `playnext.*` applies only to the
 play-next list. They use separate zero-based indexes.
 

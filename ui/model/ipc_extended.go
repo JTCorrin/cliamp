@@ -761,6 +761,7 @@ func (m *Model) handleIPCLibraryRoots(request ipcLibraryRootsRequest) tea.Cmd {
 			manager.RescanLibrary()
 		}
 		response.Roots = ipcLibraryRoots(manager.LibraryRoots())
+		response.Scanning = manager.LibraryScanning()
 		request.Reply <- response
 		return nil
 	}

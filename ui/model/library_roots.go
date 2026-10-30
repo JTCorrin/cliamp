@@ -34,5 +34,10 @@ func (m *Model) handleLibraryRootAdded(msg libraryRootAddedMsg) tea.Cmd {
 		return nil
 	}
 	m.status.Show(fmt.Sprintf("Added %s. Scanning in the background…", msg.path), statusTTLLong)
+	// The pane may have moved on to another provider while the folder was
+	// checked; refresh it only when it still shows a library.
+	if _, ok := m.provider.(provider.LibraryManager); !ok {
+		return nil
+	}
 	return m.fetchProviderPlaylists()
 }

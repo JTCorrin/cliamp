@@ -277,3 +277,127 @@ func TestConcurrentAddLibraryRootKeepsEveryFolder(t *testing.T) {
 		t.Errorf("the last saved list holds %d folders, want %d", len(last), n)
 	}
 }
+
+// A link to a folder of the library is that folder: adding it would index
+// every file twice under different track IDs.
+func TestAddLibraryRootRefusesALinkToAFolderOfTheLibrary(t *testing.T) {
+	var saved [][]string
+	p := emptyProvider(t, &saved)
+	root := t.TempDir()
+	if _, err := p.AddLibraryRoot(root); err != nil {
+		t.Fatal(err)
+	}
+	settle(t, p)
+	link := filepath.Join(t.TempDir(), "link")
+	if err := os.Symlink(root, link); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	if _, err := p.AddLibraryRoot(link); err == nil || !strings.Contains(err.Error(), "already in the library") {
+		t.Errorf("adding a link to %s: %v, want an already-in-the-library error", root, err)
+	}
+	// A link to a folder inside it is inside it.
+	child := filepath.Join(root, "child")
+	if err := os.Mkdir(child, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	childLink := filepath.Join(t.TempDir(), "childlink")
+	if err := os.Symlink(child, childLink); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	if _, err := p.AddLibraryRoot(childLink); err == nil || !strings.Contains(err.Error(), "is inside") {
+		t.Errorf("adding a link into the library: %v, want an inside error", err)
+	}
+	if got := len(p.LibraryRoots()); got != 1 {
+		t.Errorf("roots = %d, want only the first", got)
+	}
+}
+
+// A folder that was unreadable when removed must not leave its warning behind.
+func TestRemoveLibraryRootDropsItsUnavailableMark(t *testing.T) {
+	var saved [][]string
+	p := emptyProvider(t, &saved)
+	root := t.TempDir()
+	if _, err := p.AddLibraryRoot(root); err != nil {
+		t.Fatal(err)
+	}
+	settle(t, p)
+	p.mu.Lock()
+	p.status.Last.Unavailable = []string{root}
+	p.mu.Unlock()
+	if got := p.statusLine(); !strings.Contains(got, "Not readable") {
+		t.Fatalf("status line = %q, want the unreadable notice", got)
+	}
+	if err := p.RemoveLibraryRoot(root); err != nil {
+		t.Fatal(err)
+	}
+	if got := p.statusLine(); !strings.Contains(got, "No music folder") {
+		t.Errorf("status line after removal = %q, want the empty prompt", got)
+	}
+}
+
+func TestLibraryScanningFollowsTheScan(t *testing.T) {
+	var saved [][]string
+	p := emptyProvider(t, &saved)
+	if p.LibraryScanning() {
+		t.Fatal("a provider with no folder is scanning")
+	}
+	root := t.TempDir()
+	for i := 0; i < 40; i++ {
+		writeMP3(t, filepath.Join(root, "a"+itoa(i%90+10)+".mp3"), tagsFor("T", "X", "Y", 1))
+	}
+	if _, err := p.AddLibraryRoot(root); err != nil {
+		t.Fatal(err)
+	}
+	// The scan starts before AddLibraryRoot returns, so a client that asks
+	// next sees it, unless a tiny folder is already done.
+	settle(t, p)
+	if p.LibraryScanning() {
+		t.Error("still scanning after the scan ended")
+	}
+}
+
+// The file on disk must end up with the newest index even when a scan and a
+// removal both write it.
+func TestIndexFileHoldsTheNewestIndexAfterARemovalDuringAScan(t *testing.T) {
+	var saved [][]string
+	p := emptyProvider(t, &saved)
+	keep, drop := t.TempDir(), t.TempDir()
+	for i := 0; i < 30; i++ {
+		writeMP3(t, filepath.Join(drop, "d"+itoa(i%90+10)+".mp3"), tagsFor("Drop", "X", "Y", 1))
+	}
+	writeMP3(t, filepath.Join(keep, "k.mp3"), tagsFor("Keep", "X", "Y", 1))
+	for _, r := range []string{keep, drop} {
+		if _, err := p.AddLibraryRoot(r); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := p.RemoveLibraryRoot(drop); err != nil {
+		t.Fatal(err)
+	}
+	settle(t, p)
+	onDisk, err := LoadIndex(p.indexPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if onDisk.root(drop) != nil {
+		t.Errorf("the index file still holds the removed folder %s", drop)
+	}
+	if r := onDisk.root(keep); r == nil || len(r.Files) != 1 {
+		t.Errorf("the index file lost the kept folder: %+v", r)
+	}
+}
+
+func TestCloseDuringRescansDoesNotRace(t *testing.T) {
+	for i := 0; i < 20; i++ {
+		p := newProvider(config.LibraryConfig{Paths: []string{t.TempDir()}}, "")
+		done := make(chan struct{})
+		go func() {
+			for j := 0; j < 5; j++ {
+				p.RescanLibrary()
+			}
+			close(done)
+		}()
+		p.Close()
+		<-done
+	}
+}
